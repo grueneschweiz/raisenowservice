@@ -1,0 +1,20 @@
+{
+  "autoload": {
+    "psr-4": {
+      "RaiseNowConnector\\": "app"
+    }
+  },
+  "require": {
+    "ext-curl": "*",
+    "ext-openssl": "*",
+    "ext-mbstring": "*",
+    "monolog/monolog": "^2.5",
+    "guzzlehttp/guzzle": "^7.0",
+    "oittaa/aes-gcm": "^0.0.5"
+  }
+  ,
+  "require-dev": {
+    "roave/security-advisories": "dev-latest",
+    "phpunit/phpunit": "^9"
+  }
+}

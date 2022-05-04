@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="tests" type="PHPUnitRunConfigurationType" factoryName="PHPUnit" singleton="false">
+    <CommandLine>
+      <PhpTestInterpreterSettings>
+        <option name="interpreterName" value="app" />
+      </PhpTestInterpreterSettings>
+    </CommandLine>
+    <TestRunner bootstrap_file="$PROJECT_DIR$/tests/bootstrap.php" configuration_file="/var/www/html/tests/phpunit.xml" directory="$PROJECT_DIR$/tests" scope="XML" />
+    <method v="2" />
+  </configuration>
+</component>

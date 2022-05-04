@@ -1,0 +1,5 @@
+vendor
+/config.php
+/storage
+.phpunit.result.cache
+/deploy.conf

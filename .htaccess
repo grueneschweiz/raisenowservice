@@ -1,0 +1,3 @@
+AddHandler application/x-httpd-php81 .php
+
+Deny from all
