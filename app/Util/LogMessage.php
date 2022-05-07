@@ -8,9 +8,14 @@ class LogMessage
 
     public function __construct(string $msg, array $additionalParts = [])
     {
-        $this->parts           = $additionalParts;
-        $this->parts['msg']    = $msg;
+        $this->parts = $additionalParts;
+        $this->parts['msg'] = $msg;
         $this->parts['config'] = Config::name();
+    }
+
+    private static function escapeQuotes(string $string): string
+    {
+        return preg_replace('/(?<!\\\\)(\\\\\\\\)*"/', '\1\"', $string);
     }
 
     public function __toString(): string
@@ -28,10 +33,5 @@ class LogMessage
         }
 
         return "{$line}msg=\"$msg\"";
-    }
-
-    private static function escapeQuotes(string $string): string
-    {
-        return preg_replace('/(?<!\\\\)(\\\\\\\\)*"/', '\1\"', $string);
     }
 }

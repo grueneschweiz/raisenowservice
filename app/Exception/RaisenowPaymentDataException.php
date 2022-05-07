@@ -1,4 +1,5 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace RaiseNowConnector\Exception;
 
@@ -10,8 +11,7 @@ class RaisenowPaymentDataException extends RuntimeException
     public function __construct(
         string $message,
         private readonly RaisenowPaymentData $payment
-    )
-    {
+    ) {
         parent::__construct($message);
     }
 

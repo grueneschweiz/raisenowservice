@@ -1,4 +1,5 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace RaiseNowConnector\Util;
 
@@ -13,8 +14,8 @@ class ClientFactory
 
     public static function create(array $options = []): ClientInterface
     {
-        if ( ! empty(self::$mockHandlers)) {
-            $mock               = array_shift(self::$mockHandlers);
+        if (!empty(self::$mockHandlers)) {
+            $mock = array_shift(self::$mockHandlers);
             $options['handler'] = HandlerStack::create($mock);
         }
 

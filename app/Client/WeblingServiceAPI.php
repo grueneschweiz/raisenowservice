@@ -1,4 +1,5 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace RaiseNowConnector\Client;
 
@@ -41,26 +42,6 @@ class WeblingServiceAPI
 
     /**
      * @throws ConfigException
-     */
-    private function initClient(): void
-    {
-        $apiUrl       = rtrim(Config::get('weblingServiceApiUrl'), '/').'/';
-
-        $options = [
-            'base_uri'    => $apiUrl,
-            'timeout'     => self::REQUEST_TIMEOUT,
-            'http_errors' => true,
-        ];
-
-        if (isset($this->token)) {
-            $options['headers'] = ['Authorization' => $this->token->getToken()];
-        }
-
-        $this->client = ClientFactory::create($options);
-    }
-
-    /**
-     * @throws ConfigException
      * @throws GuzzleException
      * @throws JsonException
      */
@@ -89,18 +70,38 @@ class WeblingServiceAPI
      */
     private function hasValidToken(): bool
     {
-        if ( ! isset($this->token) || $this->token->dueForRenewal()) {
+        if (!isset($this->token) || $this->token->dueForRenewal()) {
             return false;
         }
 
         try {
             $this->initClient();
-            $response = $this->client->get('/api/v1/auth' );
+            $response = $this->client->get('/api/v1/auth');
         } catch (GuzzleException $e) {
             Logger::warning(new LogMessage("Could not test oAuth token of Webling service: {$e->getMessage()}."));
         }
 
         return isset($response) && 200 === $response->getStatusCode();
+    }
+
+    /**
+     * @throws ConfigException
+     */
+    private function initClient(): void
+    {
+        $apiUrl = rtrim(Config::get('weblingServiceApiUrl'), '/') . '/';
+
+        $options = [
+            'base_uri' => $apiUrl,
+            'timeout' => self::REQUEST_TIMEOUT,
+            'http_errors' => true,
+        ];
+
+        if (isset($this->token)) {
+            $options['headers'] = ['Authorization' => $this->token->getToken()];
+        }
+
+        $this->client = ClientFactory::create($options);
     }
 
     /**
@@ -113,10 +114,10 @@ class WeblingServiceAPI
         $this->token = null;
 
         $data = array(
-            'grant_type'    => 'client_credentials',
-            'client_id'     => Config::get('weblingServiceClientId'),
+            'grant_type' => 'client_credentials',
+            'client_id' => Config::get('weblingServiceClientId'),
             'client_secret' => Config::get('weblingServiceClientSecret'),
-            'scope'         => ''
+            'scope' => ''
         );
 
         try {
@@ -128,7 +129,7 @@ class WeblingServiceAPI
         }
 
         try {
-            $tokenData = json_decode((string) $response->getBody(), false, 512, JSON_THROW_ON_ERROR);
+            $tokenData = json_decode((string)$response->getBody(), false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
             Logger::error(new LogMessage("Invalid token JSON from Webling service."));
             throw $e;
@@ -152,26 +153,30 @@ class WeblingServiceAPI
     public function matchMember(RaisenowPaymentData $paymentData)
     {
         $data = [
-            'email1'    => ['value' => $paymentData->email],
+            'email1' => ['value' => $paymentData->email],
             'firstName' => ['value' => $paymentData->firstName],
-            'lastName'  => ['value' => $paymentData->lastName],
-            'zip'       => ['value' => $paymentData->zip],
+            'lastName' => ['value' => $paymentData->lastName],
+            'zip' => ['value' => $paymentData->zip],
         ];
 
         $response = $this->client->post('/api/v1/member/match', ['json' => $data]);
 
         try {
-            $body = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+            $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             /** @noinspection JsonEncodingApiUsageInspection */
-            Logger::debug(new LogMessage("Data sent to Webling service:\n".json_encode($data, JSON_PRETTY_PRINT)));
-            throw new WeblingServiceAPIException("Invalid response from member/match endpoint of Webling service. Response: {$response->getBody()}.");
+            Logger::debug(new LogMessage("Data sent to Webling service:\n" . json_encode($data, JSON_PRETTY_PRINT)));
+            throw new WeblingServiceAPIException(
+                "Invalid response from member/match endpoint of Webling service. Response: {$response->getBody()}."
+            );
         }
 
-        if ( ! array_key_exists('status', $body)) {
+        if (!array_key_exists('status', $body)) {
             /** @noinspection JsonEncodingApiUsageInspection */
-            Logger::debug(new LogMessage("Data sent to Webling service:\n".json_encode($data, JSON_PRETTY_PRINT)));
-            throw new WeblingServiceAPIException("Invalid response from member/match endpoint of Webling service. Response: {$response->getBody()}.");
+            Logger::debug(new LogMessage("Data sent to Webling service:\n" . json_encode($data, JSON_PRETTY_PRINT)));
+            throw new WeblingServiceAPIException(
+                "Invalid response from member/match endpoint of Webling service. Response: {$response->getBody()}."
+            );
         }
 
         return $body;
@@ -185,9 +190,11 @@ class WeblingServiceAPI
         $response = $this->client->get("/api/v1/member/$memberId/main");
 
         try {
-            $member = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+            $member = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
-            throw new WeblingServiceAPIException("Invalid response from member/$memberId/main endpoint of Webling service. Response: {$response->getBody()}.");
+            throw new WeblingServiceAPIException(
+                "Invalid response from member/$memberId/main endpoint of Webling service. Response: {$response->getBody()}."
+            );
         }
 
         return $member;
@@ -199,43 +206,23 @@ class WeblingServiceAPI
      */
     public function addMember(RaisenowPaymentData $paymentData): array
     {
-        $data           = self::convertToMemberUpsertData($paymentData);
+        $data = self::convertToMemberUpsertData($paymentData);
         $data['groups'] = [
             'value' => [Config::get('groupIdForNewMembers')],
-            'mode'  => 'append',
+            'mode' => 'append',
         ];
 
-        $create      = $this->client->post('/api/v1/member', ['json' => $data]);
+        $create = $this->client->post('/api/v1/member', ['json' => $data]);
         $newMemberId = $create->getBody();
 
         $get = $this->client->get("/api/v1/member/$newMemberId");
 
         try {
-            $member = json_decode((string) $get->getBody(), true, 512, JSON_THROW_ON_ERROR);
+            $member = json_decode((string)$get->getBody(), true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
-            throw new WeblingServiceAPIException("Invalid response from member/$newMemberId endpoint of Webling service. Response: {$get->getBody()}.");
-        }
-
-        return $member;
-    }
-
-    /**
-     * @throws ConfigException
-     * @throws GuzzleException
-     */
-    public function updateMember(int $id, RaisenowPaymentData $paymentData): array
-    {
-        $data = self::convertToMemberUpsertData($paymentData);
-
-        $update   = $this->client->put("/api/v1/member/$id", ['json' => $data]);
-        $memberId = (string) $update->getBody();
-
-        $get = $this->client->get("/api/v1/member/$memberId");
-
-        try {
-            $member = json_decode((string) $get->getBody(), true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new WeblingServiceAPIException("Invalid response from member/$memberId endpoint of Webling service. Response: {$get->getBody()}.");
+            throw new WeblingServiceAPIException(
+                "Invalid response from member/$newMemberId endpoint of Webling service. Response: {$get->getBody()}."
+            );
         }
 
         return $member;
@@ -248,89 +235,113 @@ class WeblingServiceAPI
     {
         $lang = $paymentData->language[0];
 
-        $gender = match($paymentData->salutation) {
-            'ms'      => 'f',
-            'mr'      => 'm',
+        $gender = match ($paymentData->salutation) {
+            'ms' => 'f',
+            'mr' => 'm',
             'neutral' => 'n',
         };
 
-        $salutation = $gender.strtoupper($lang);
+        $salutation = $gender . strtoupper($lang);
 
         $data = [
-            'email1'                  => [
+            'email1' => [
                 'value' => $paymentData->email,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'gender'                  => [
+            'gender' => [
                 'value' => $gender,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'salutationFormal'        => [
+            'salutationFormal' => [
                 'value' => $salutation,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'salutationInformal'      => [
+            'salutationInformal' => [
                 'value' => $salutation,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'firstName'               => [
+            'firstName' => [
                 'value' => $paymentData->firstName,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'lastName'                => [
+            'lastName' => [
                 'value' => $paymentData->lastName,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'company'                 => [
+            'company' => [
                 'value' => $paymentData->company,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'address1'                => [
+            'address1' => [
                 'value' => $paymentData->address1,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'address2'                => [
+            'address2' => [
                 'value' => $paymentData->address2,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'zip'                     => [
+            'zip' => [
                 'value' => $paymentData->zip,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'city'                    => [
+            'city' => [
                 'value' => $paymentData->city,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'country'                 => [
+            'country' => [
                 'value' => mb_strtolower($paymentData->country),
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'language'                => [
+            'language' => [
                 'value' => $lang,
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
-            'entryChannel'            => [
+            'entryChannel' => [
                 'value' => "RaiseNow donation: $paymentData->sourceUrl",
-                'mode'  => 'addIfNew',
+                'mode' => 'addIfNew',
             ],
             Config::get('donorField') => [
                 'value' => 'donor',
-                'mode'  => 'replaceEmpty',
+                'mode' => 'replaceEmpty',
             ],
         ];
 
-        if ( ! in_array($lang, ['d', 'f', 'i'])) {
+        if (!in_array($lang, ['d', 'f', 'i'])) {
             unset($data['language']);
         }
 
         if ($paymentData->newsletter && in_array($lang, ['d', 'f'])) {
-            $newsletterFieldKey        = Config::get('newsletterField'.strtoupper($lang));
+            $newsletterFieldKey = Config::get('newsletterField' . strtoupper($lang));
             $data[$newsletterFieldKey] = [
                 'value' => 'yes',
-                'mode'  => 'replace'
+                'mode' => 'replace'
             ];
         }
 
         return $data;
+    }
+
+    /**
+     * @throws ConfigException
+     * @throws GuzzleException
+     */
+    public function updateMember(int $id, RaisenowPaymentData $paymentData): array
+    {
+        $data = self::convertToMemberUpsertData($paymentData);
+
+        $update = $this->client->put("/api/v1/member/$id", ['json' => $data]);
+        $memberId = (string)$update->getBody();
+
+        $get = $this->client->get("/api/v1/member/$memberId");
+
+        try {
+            $member = json_decode((string)$get->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw new WeblingServiceAPIException(
+                "Invalid response from member/$memberId endpoint of Webling service. Response: {$get->getBody()}."
+            );
+        }
+
+        return $member;
     }
 }

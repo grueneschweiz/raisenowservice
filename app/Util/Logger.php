@@ -1,4 +1,5 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace RaiseNowConnector\Util;
 
@@ -13,7 +14,7 @@ final class Logger
 
     private function __construct()
     {
-        $logFilePath = BASE_PATH.'/storage/logs/app.log';
+        $logFilePath = BASE_PATH . '/storage/logs/app.log';
 
         $this->logger = new Monolog('logger');
         $this->logger->pushHandler(new StreamHandler($logFilePath, $this->getLogLevel()));
@@ -27,7 +28,7 @@ final class Logger
             $configuredLevel = 'DEBUG';
         }
 
-        $logLevel = constant('\Monolog\Logger::'.$configuredLevel);
+        $logLevel = constant('\Monolog\Logger::' . $configuredLevel);
 
         if (is_int($logLevel)) {
             return $logLevel;
@@ -36,18 +37,18 @@ final class Logger
         return Monolog::DEBUG;
     }
 
+    public static function emergency(LogMessage $message, array $context = []): void
+    {
+        self::getInstance()->logger->emergency($message, $context);
+    }
+
     private static function getInstance(): Logger
     {
-        if ( ! isset(self::$instance)) {
+        if (!isset(self::$instance)) {
             self::$instance = new Logger();
         }
 
         return self::$instance;
-    }
-
-    public static function emergency(LogMessage $message, array $context = []): void
-    {
-        self::getInstance()->logger->emergency($message, $context);
     }
 
     public static function alert(LogMessage $message, array $context = []): void

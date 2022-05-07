@@ -10,7 +10,7 @@ final class Auth
     {
         $givenSecret = self::getWebhookSecretFromUrl();
 
-        if ( ! $givenSecret) {
+        if (!$givenSecret) {
             return false;
         }
 

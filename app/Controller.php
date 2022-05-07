@@ -23,13 +23,13 @@ class Controller
 
     public function init(): void
     {
-        if ( ! Config::exists()) {
+        if (!Config::exists()) {
             http_response_code(404);
 
             return;
         }
 
-        if ( ! Auth::webhookSecretIsValid()) {
+        if (!Auth::webhookSecretIsValid()) {
             http_response_code(401);
 
             return;
@@ -37,21 +37,26 @@ class Controller
 
         try {
             $this->processPayment();
-
         } catch (ConfigException|JsonException $e) {
             // @codeCoverageIgnoreStart
-            Logger::error(new LogMessage($e, isset($this->payment) ? [
-                'transactionId' => $this->payment->eppTransactionId,
-                'email'         => $this->payment->email
-            ] : []));
+            Logger::error(
+                new LogMessage(
+                    $e, isset($this->payment) ? [
+                    'transactionId' => $this->payment->eppTransactionId,
+                    'email' => $this->payment->email
+                ] : []
+                )
+            );
             http_response_code(500);
             // @codeCoverageIgnoreEnd
 
         } catch (RaisenowPaymentDataException $e) {
-            Logger::error(new LogMessage($e, [
-                'transactionId' => $e->getPayment()->eppTransactionId,
-                'email'         => $e->getPayment()->email
-            ]));
+            Logger::error(
+                new LogMessage($e, [
+                    'transactionId' => $e->getPayment()->eppTransactionId,
+                    'email' => $e->getPayment()->email
+                ])
+            );
             /** @noinspection PhpUnhandledExceptionInspection */
             Mailer::notifyAdmin(
                 "Invalid data received from Raisenow:\n{$e->getMessage()}",
@@ -64,12 +69,15 @@ class Controller
             );
 
             http_response_code(400);
-
         } catch (GuzzleException $e) {
-            Logger::warning(new LogMessage($e, isset($this->payment) ? [
-                'transactionId' => $this->payment->eppTransactionId,
-                'email'         => $this->payment->email
-            ] : []));
+            Logger::warning(
+                new LogMessage(
+                    $e, isset($this->payment) ? [
+                    'transactionId' => $this->payment->eppTransactionId,
+                    'email' => $this->payment->email
+                ] : []
+                )
+            );
             /** @noinspection PhpUnhandledExceptionInspection */
             Mailer::notifyAccountantError(
                 "Failed to process payment. Please enter payment manually.",
@@ -98,15 +106,17 @@ class Controller
 
         $member = $this->updateAndGetMemberFromWebling();
 
-        if ( ! $member) {
+        if (!$member) {
             // unsure, if a corresponding record exists in webling -> handle manually
-            Logger::info(new LogMessage(
-                "Payment matched multiple members. Failed to disambiguate. Notifying accountant and exiting.",
-                [
-                    'transactionId' => $this->payment->eppTransactionId,
-                    'email'         => $this->payment->email
-                ]
-            ));
+            Logger::info(
+                new LogMessage(
+                    "Payment matched multiple members. Failed to disambiguate. Notifying accountant and exiting.",
+                    [
+                        'transactionId' => $this->payment->eppTransactionId,
+                        'email' => $this->payment->email
+                    ]
+                )
+            );
             Mailer::notifyAccountantError(
                 "Failed to process payment. Please enter payment manually.",
                 $this->payment
@@ -121,13 +131,15 @@ class Controller
 
         // if payment exists already in webling -> return with status code 200
         if ($webling->paymentExists($this->payment)) {
-            Logger::info(new LogMessage(
-                "Payment {$this->payment->eppTransactionId} is already in Webling. Aborting.",
-                [
-                    'transactionId' => $this->payment->eppTransactionId,
-                    'email'         => $this->payment->email
-                ]
-            ));
+            Logger::info(
+                new LogMessage(
+                    "Payment {$this->payment->eppTransactionId} is already in Webling. Aborting.",
+                    [
+                        'transactionId' => $this->payment->eppTransactionId,
+                        'email' => $this->payment->email
+                    ]
+                )
+            );
             http_response_code(200);
 
             return;
@@ -135,26 +147,30 @@ class Controller
 
         // add payment to webling
         $webling->addPayment($member['id'], $this->payment);
-        Logger::debug(new LogMessage(
-            "Payment successfully added to Webling.",
-            [
-                'transactionId' => $this->payment->eppTransactionId,
-                'email'         => $this->payment->email,
-                'memberId'      => $member['id']
-            ]
-        ));
-
-        // notify accountant, if donor left a message
-        if ( ! empty($this->payment->message)) {
-            Mailer::notifyAccountantDonorMessage($this->payment);
-            Logger::debug(new LogMessage(
-                "Accountant notified about message in payment.",
+        Logger::debug(
+            new LogMessage(
+                "Payment successfully added to Webling.",
                 [
                     'transactionId' => $this->payment->eppTransactionId,
-                    'email'         => $this->payment->email,
-                    'memberId'      => $member['id']
+                    'email' => $this->payment->email,
+                    'memberId' => $member['id']
                 ]
-            ));
+            )
+        );
+
+        // notify accountant, if donor left a message
+        if (!empty($this->payment->message)) {
+            Mailer::notifyAccountantDonorMessage($this->payment);
+            Logger::debug(
+                new LogMessage(
+                    "Accountant notified about message in payment.",
+                    [
+                        'transactionId' => $this->payment->eppTransactionId,
+                        'email' => $this->payment->email,
+                        'memberId' => $member['id']
+                    ]
+                )
+            );
         }
 
         http_response_code(201);
@@ -175,37 +191,43 @@ class Controller
             case WeblingServiceAPI::MATCH_EXACT:
                 // found exactly one existing record in webling -> use it
                 $memberData = $match['matches'][0];
-                Logger::debug(new LogMessage(
-                    "Payment matched member with id {$memberData['id']}.",
-                    [
-                        'transactionId' => $this->payment->eppTransactionId,
-                        'email'         => $this->payment->email
-                    ]
-                ));
+                Logger::debug(
+                    new LogMessage(
+                        "Payment matched member with id {$memberData['id']}.",
+                        [
+                            'transactionId' => $this->payment->eppTransactionId,
+                            'email' => $this->payment->email
+                        ]
+                    )
+                );
                 break;
 
             case WeblingServiceAPI::MATCH_MULTIPLE:
                 // found multiple records in webling -> use the main record
                 $memberData = $weblingService->mainMember($match['matches'][0]['id']);
-                Logger::debug(new LogMessage(
-                    "Payment matched multiple members. Main member has id {$memberData['id']}.",
-                    [
-                        'transactionId' => $this->payment->eppTransactionId,
-                        'email'         => $this->payment->email
-                    ]
-                ));
+                Logger::debug(
+                    new LogMessage(
+                        "Payment matched multiple members. Main member has id {$memberData['id']}.",
+                        [
+                            'transactionId' => $this->payment->eppTransactionId,
+                            'email' => $this->payment->email
+                        ]
+                    )
+                );
                 break;
 
             case WeblingServiceAPI::MATCH_NONE:
                 // found no record in webling -> create a new one
                 $memberData = $weblingService->addMember($this->payment);
-                Logger::debug(new LogMessage(
-                    "Payment matched no one. Newly created member has id {$memberData['id']}.",
-                    [
-                        'transactionId' => $this->payment->eppTransactionId,
-                        'email'         => $this->payment->email
-                    ]
-                ));
+                Logger::debug(
+                    new LogMessage(
+                        "Payment matched no one. Newly created member has id {$memberData['id']}.",
+                        [
+                            'transactionId' => $this->payment->eppTransactionId,
+                            'email' => $this->payment->email
+                        ]
+                    )
+                );
                 break;
 
             case WeblingServiceAPI::MATCH_AMBIGUOUS:
@@ -221,11 +243,13 @@ class Controller
             || $this->payment->newsletter
         ) {
             $memberData = $weblingService->updateMember($memberData['id'], $this->payment);
-            Logger::debug(new LogMessage("Updated member data in Webling.", [
-                'transactionId' => $this->payment->eppTransactionId,
-                'email'         => $this->payment->email,
-                'memberId'      => $memberData['id']
-            ]));
+            Logger::debug(
+                new LogMessage("Updated member data in Webling.", [
+                    'transactionId' => $this->payment->eppTransactionId,
+                    'email' => $this->payment->email,
+                    'memberId' => $memberData['id']
+                ])
+            );
         }
 
         return $memberData;

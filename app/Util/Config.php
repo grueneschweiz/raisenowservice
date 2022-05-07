@@ -1,4 +1,5 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace RaiseNowConnector\Util;
 
@@ -15,7 +16,7 @@ final class Config
      */
     private function __construct()
     {
-        $config = include BASE_PATH.'/config.php';
+        $config = include BASE_PATH . '/config.php';
 
         $configName = self::name();
 
@@ -23,24 +24,23 @@ final class Config
             throw new ConfigException("Invalid url path called: $configName");
         }
 
-        if ( ! array_key_exists($configName, $config)) {
+        if (!array_key_exists($configName, $config)) {
             throw new ConfigException("No config for url path: $configName");
         }
 
         $this->config = $config[$configName];
     }
 
-    /**
-     * @throws ConfigException
-     * @noinspection PhpDocRedundantThrowsInspection
-     */
-    private static function getInstance(): Config
+    public static function name(): string
     {
-        if ( empty(self::$instance)) {
-            self::$instance = new Config();
+        if (empty(self::$configName)) {
+            $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+            $path = trim($path, '/');
+
+            self::$configName = explode('/', $path)[0];
         }
 
-        return self::$instance;
+        return self::$configName;
     }
 
     /**
@@ -50,23 +50,24 @@ final class Config
     {
         $instance = self::getInstance();
 
-        if ( ! array_key_exists($key, $instance->config)) {
+        if (!array_key_exists($key, $instance->config)) {
             throw new ConfigException("Config has no key called $key.");
         }
 
         return $instance->config[$key];
     }
 
-    public static function name(): string
+    /**
+     * @throws ConfigException
+     * @noinspection PhpDocRedundantThrowsInspection
+     */
+    private static function getInstance(): Config
     {
-        if ( empty(self::$configName)) {
-            $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-            $path = trim($path, '/');
-
-            self::$configName = explode('/', $path)[0];
+        if (empty(self::$instance)) {
+            self::$instance = new Config();
         }
 
-        return self::$configName;
+        return self::$instance;
     }
 
     public static function exists(): bool
