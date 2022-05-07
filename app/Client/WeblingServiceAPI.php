@@ -248,12 +248,12 @@ class WeblingServiceAPI
     {
         $lang = $paymentData->language[0];
 
-        $genderMap  = [
+        $gender = match($paymentData->salutation) {
             'ms'      => 'f',
             'mr'      => 'm',
             'neutral' => 'n',
-        ];
-        $gender     = $genderMap[$paymentData->salutation];
+        };
+
         $salutation = $gender.strtoupper($lang);
 
         $data = [
