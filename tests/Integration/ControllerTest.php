@@ -77,6 +77,14 @@ class ControllerTest extends TestCase
         self::assertEquals(400, http_response_code());
     }
 
+    public function testInit__InvalidLanguage(): void
+    {
+        $data = self::getWebhookData();
+        $data['data']['language'] = null;
+        self::post(self::getUrl(), $data);
+        self::assertEquals(400, http_response_code());
+    }
+
     private static function getUrl(): string
     {
         $config = include dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'config.php';
