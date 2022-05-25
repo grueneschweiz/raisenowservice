@@ -77,7 +77,7 @@ class RaisenowPaymentData
                 $context['email'] = self::getPostData('stored_customer_email');
             }
 
-            Logger::info(new LogMessage("Post data received from webhook is missing key: $key", $context));
+            Logger::debug(new LogMessage("Post data received from webhook is missing key: $key", $context));
 
             return '';
         }

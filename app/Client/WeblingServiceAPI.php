@@ -253,7 +253,7 @@ class WeblingServiceAPI
                 'mode' => 'replaceEmpty',
             ],
             'salutationFormal' => [
-                'value' => $salutation,
+                'value' => 'n' === $gender ? '' : $salutation,
                 'mode' => 'replaceEmpty',
             ],
             'salutationInformal' => [
