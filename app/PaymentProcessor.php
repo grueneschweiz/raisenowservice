@@ -27,7 +27,15 @@ class PaymentProcessor
     public function init(): void
     {
         try {
-            $this->processPayment();
+            $this->payment = RaisenowPaymentData::fromRequestData();
+
+            if (!$this->processMemberData()) {
+                http_response_code(200);
+                return;
+            }
+
+            $this->processPaymentData();
+
         } catch (ConfigException|JsonException $e) {
             // @codeCoverageIgnoreStart
             Logger::error(
@@ -94,10 +102,8 @@ class PaymentProcessor
      * @throws GuzzleException
      * @noinspection PhpDocRedundantThrowsInspection
      */
-    private function processPayment(): void
+    private function processMemberData(): bool
     {
-        $this->payment = RaisenowPaymentData::fromRequestData();
-
         $this->weblingService = new WeblingServiceAPI();
         $this->updateAndGetMemberFromWebling();
 
@@ -106,11 +112,23 @@ class PaymentProcessor
                 "Failed to process payment. Please enter payment manually.",
                 $this->payment
             );
-            http_response_code(200);
 
-            return;
+            return false;
         }
 
+        return true;
+    }
+
+
+    /**
+     * @throws ConfigException
+     * @throws JsonException
+     * @throws RaisenowPaymentDataException
+     * @throws GuzzleException
+     * @noinspection PhpDocRedundantThrowsInspection
+     */
+    private function processPaymentData(): void
+    {
         if (!$this->addPaymentToWebling()) {
             // payment already exists in Webling
             http_response_code(200);
