@@ -20,6 +20,7 @@ use RaiseNowConnector\Util\Mailer;
 class Controller
 {
     private RaisenowPaymentData $payment;
+    private int|null $weblingMemberId;
 
     public function init(): void
     {
@@ -104,9 +105,9 @@ class Controller
     {
         $this->payment = RaisenowPaymentData::fromRequestData();
 
-        $member = $this->updateAndGetMemberFromWebling();
+        $this->updateAndGetMemberFromWebling();
 
-        if (!$member) {
+        if (!$this->weblingMemberId) {
             // unsure, if a corresponding record exists in webling -> handle manually
             Logger::info(
                 new LogMessage(
@@ -126,37 +127,12 @@ class Controller
             return;
         }
 
-
-        $webling = new WeblingAPI();
-
-        // if payment exists already in webling -> return with status code 200
-        if ($webling->paymentExists($this->payment)) {
-            Logger::info(
-                new LogMessage(
-                    "Payment {$this->payment->eppTransactionId} is already in Webling. Aborting.",
-                    [
-                        'transactionId' => $this->payment->eppTransactionId,
-                        'email' => $this->payment->email
-                    ]
-                )
-            );
+        if (! $this->addPaymentToWebling()) {
+            // payment already exists in Webling
             http_response_code(200);
 
             return;
         }
-
-        // add payment to webling
-        $webling->addPayment($member['id'], $this->payment);
-        Logger::debug(
-            new LogMessage(
-                "Payment successfully added to Webling.",
-                [
-                    'transactionId' => $this->payment->eppTransactionId,
-                    'email' => $this->payment->email,
-                    'memberId' => $member['id']
-                ]
-            )
-        );
 
         // notify accountant, if donor left a message
         if (!empty($this->payment->message)) {
@@ -167,7 +143,7 @@ class Controller
                     [
                         'transactionId' => $this->payment->eppTransactionId,
                         'email' => $this->payment->email,
-                        'memberId' => $member['id']
+                        'memberId' => $this->weblingMemberId
                     ]
                 )
             );
@@ -180,7 +156,7 @@ class Controller
      * @throws ConfigException
      * @throws GuzzleException
      */
-    private function updateAndGetMemberFromWebling(): ?array
+    private function updateAndGetMemberFromWebling(): void
     {
         $weblingService = new WeblingServiceAPI();
 
@@ -232,7 +208,8 @@ class Controller
 
             case WeblingServiceAPI::MATCH_AMBIGUOUS:
             default:
-                return null;
+                $this->weblingMemberId = null;
+                return;
         }
 
         // maybe complete missing address
@@ -252,6 +229,46 @@ class Controller
             );
         }
 
-        return $memberData;
+        $this->weblingMemberId = $memberData['id'];
+    }
+
+    /**
+     * @return bool false if payment already exists in Webling, true if added
+     *
+     * @throws ConfigException
+     * @throws GuzzleException
+     */
+    private function addPaymentToWebling(): bool
+    {
+        $webling = new WeblingAPI();
+
+        if ($webling->paymentExists($this->payment)) {
+            Logger::info(
+                new LogMessage(
+                    "Payment {$this->payment->eppTransactionId} is already in Webling. Aborting.",
+                    [
+                        'transactionId' => $this->payment->eppTransactionId,
+                        'email' => $this->payment->email
+                    ]
+                )
+            );
+
+            return false;
+        }
+
+        // add payment to webling
+        $webling->addPayment($this->weblingMemberId, $this->payment);
+        Logger::debug(
+            new LogMessage(
+                "Payment successfully added to Webling.",
+                [
+                    'transactionId' => $this->payment->eppTransactionId,
+                    'email' => $this->payment->email,
+                    'memberId' => $this->weblingMemberId
+                ]
+            )
+        );
+
+        return true;
     }
 }
