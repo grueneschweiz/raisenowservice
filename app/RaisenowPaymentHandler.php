@@ -11,12 +11,15 @@ use JsonException;
 use RaiseNowConnector\Exception\ConfigException;
 use RaiseNowConnector\Exception\RaisenowPaymentDataException;
 use RaiseNowConnector\Model\RaisenowPaymentData;
+use RaiseNowConnector\Model\WeblingPaymentState;
 use RaiseNowConnector\Util\Logger;
 use RaiseNowConnector\Util\LogMessage;
 use RaiseNowConnector\Util\Mailer;
 
 class RaisenowPaymentHandler
 {
+    private const RETRY_AFTER_IF_LOCKED = 300; // seconds
+
     private RaisenowPaymentData $payment;
 
 
@@ -37,14 +40,19 @@ class RaisenowPaymentHandler
                 return;
             }
 
-            $paymentAdded = (new WeblingPaymentProcessor($this->payment, $weblingMemberId))->process();
+            $paymentStatus = (new WeblingPaymentProcessor($this->payment, $weblingMemberId))->process();
 
-            if ($paymentAdded){
-                http_response_code(201);
-            } else {
-                // payment already exists in webling
-                http_response_code(200);
+            $statusCode = match ($paymentStatus) {
+                WeblingPaymentState::Added => 201,
+                WeblingPaymentState::Exists => 200,
+                WeblingPaymentState::Locked => 503,
+            };
+
+            if ($paymentStatus === WeblingPaymentState::Locked) {
+                header('Retry-After: ' . (self::RETRY_AFTER_IF_LOCKED));
             }
+
+            http_response_code($statusCode);
 
         } catch (ConfigException|JsonException $e) {
             // @codeCoverageIgnoreStart

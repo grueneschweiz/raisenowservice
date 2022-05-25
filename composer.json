@@ -10,7 +10,8 @@
     "ext-mbstring": "*",
     "monolog/monolog": "^2.5",
     "guzzlehttp/guzzle": "^7.0",
-    "oittaa/aes-gcm": "^0.0.5"
+    "oittaa/aes-gcm": "^0.0.5",
+    "symfony/lock": "^6.0"
   }
   ,
   "require-dev": {

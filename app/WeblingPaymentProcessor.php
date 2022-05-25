@@ -10,17 +10,24 @@ use RaiseNowConnector\Client\WeblingAPI;
 use RaiseNowConnector\Exception\ConfigException;
 use RaiseNowConnector\Exception\RaisenowPaymentDataException;
 use RaiseNowConnector\Model\RaisenowPaymentData;
+use RaiseNowConnector\Model\WeblingPaymentState;
 use RaiseNowConnector\Util\Logger;
 use RaiseNowConnector\Util\LogMessage;
 use RaiseNowConnector\Util\Mailer;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\LockInterface;
+use Symfony\Component\Lock\Store\FlockStore;
 
 class WeblingPaymentProcessor
 {
+    private WeblingAPI $webling;
+    private LockInterface $lock;
+
     public function __construct(
         private readonly RaisenowPaymentData $payment,
         private readonly int|null $weblingMemberId
     ) {
-
+        $this->webling = new WeblingAPI();
     }
 
     /**
@@ -30,11 +37,21 @@ class WeblingPaymentProcessor
      * @throws GuzzleException
      * @noinspection PhpDocRedundantThrowsInspection
      */
-    public function process(): bool
+    public function process(): WeblingPaymentState
     {
-        if (!$this->addPaymentToWebling()) {
+        if (!$this->lock()) {
+            return WeblingPaymentState::Locked;
+        }
+
+        try {
+            $added = $this->addPaymentToWebling();
+        } finally {
+            $this->unlock();
+        }
+
+        if (!$added) {
             // payment already exists in Webling
-            return false;
+            return WeblingPaymentState::Exists;
         }
 
         // notify accountant, if donor left a message
@@ -53,10 +70,15 @@ class WeblingPaymentProcessor
         }
 
         // payment added
-        return true;
+        return WeblingPaymentState::Added;
     }
 
-
+    private function lock(): bool
+    {
+        $factory = new LockFactory(new FlockStore());
+        $this->lock = $factory->createLock($this->payment->eppTransactionId);
+        return $this->lock->acquire();
+    }
 
     /**
      * @return bool false if payment already exists in Webling, true if added
@@ -66,9 +88,7 @@ class WeblingPaymentProcessor
      */
     private function addPaymentToWebling(): bool
     {
-        $webling = new WeblingAPI();
-
-        if ($webling->paymentExists($this->payment)) {
+        if ($this->webling->paymentExists($this->payment)) {
             Logger::info(
                 new LogMessage(
                     "Payment {$this->payment->eppTransactionId} is already in Webling. Aborting.",
@@ -83,7 +103,7 @@ class WeblingPaymentProcessor
         }
 
         // add payment to webling
-        $webling->addPayment($this->weblingMemberId, $this->payment);
+        $this->webling->addPayment($this->weblingMemberId, $this->payment);
         Logger::debug(
             new LogMessage(
                 "Payment successfully added to Webling.",
@@ -96,5 +116,10 @@ class WeblingPaymentProcessor
         );
 
         return true;
+    }
+
+    private function unlock(): void
+    {
+        $this->lock->release();
     }
 }
