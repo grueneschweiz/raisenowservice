@@ -20,7 +20,8 @@ use RaiseNowConnector\Util\Mailer;
 class PaymentProcessor
 {
     private RaisenowPaymentData $payment;
-    private int|null $weblingMemberId;
+    private array|null $weblingMember;
+    private WeblingServiceAPI $weblingService;
 
 
     public function init(): void
@@ -30,11 +31,12 @@ class PaymentProcessor
         } catch (ConfigException|JsonException $e) {
             // @codeCoverageIgnoreStart
             Logger::error(
-                new LogMessage((string)$e,
+                new LogMessage(
+                    (string)$e,
                     isset($this->payment) ? [
-                    'transactionId' => $this->payment->eppTransactionId,
-                    'email' => $this->payment->email
-                ] : []
+                        'transactionId' => $this->payment->eppTransactionId,
+                        'email' => $this->payment->email
+                    ] : []
                 )
             );
             http_response_code(500);
@@ -42,7 +44,7 @@ class PaymentProcessor
 
         } catch (RaisenowPaymentDataException $e) {
             Logger::error(
-                new LogMessage((string) $e, [
+                new LogMessage((string)$e, [
                     'transactionId' => $e->getPayment()->eppTransactionId,
                     'email' => $e->getPayment()->email
                 ])
@@ -61,11 +63,12 @@ class PaymentProcessor
             http_response_code(400);
         } catch (GuzzleException $e) {
             Logger::warning(
-                new LogMessage((string)$e,
+                new LogMessage(
+                    (string)$e,
                     isset($this->payment) ? [
-                    'transactionId' => $this->payment->eppTransactionId,
-                    'email' => $this->payment->email
-                ] : []
+                        'transactionId' => $this->payment->eppTransactionId,
+                        'email' => $this->payment->email
+                    ] : []
                 )
             );
             /** @noinspection PhpUnhandledExceptionInspection */
@@ -95,19 +98,10 @@ class PaymentProcessor
     {
         $this->payment = RaisenowPaymentData::fromRequestData();
 
+        $this->weblingService = new WeblingServiceAPI();
         $this->updateAndGetMemberFromWebling();
 
-        if (!$this->weblingMemberId) {
-            // unsure, if a corresponding record exists in webling -> handle manually
-            Logger::info(
-                new LogMessage(
-                    "Payment matched multiple members. Failed to disambiguate. Notifying accountant and exiting.",
-                    [
-                        'transactionId' => $this->payment->eppTransactionId,
-                        'email' => $this->payment->email
-                    ]
-                )
-            );
+        if (!$this->weblingMember) {
             Mailer::notifyAccountantError(
                 "Failed to process payment. Please enter payment manually.",
                 $this->payment
@@ -117,7 +111,7 @@ class PaymentProcessor
             return;
         }
 
-        if (! $this->addPaymentToWebling()) {
+        if (!$this->addPaymentToWebling()) {
             // payment already exists in Webling
             http_response_code(200);
 
@@ -133,7 +127,7 @@ class PaymentProcessor
                     [
                         'transactionId' => $this->payment->eppTransactionId,
                         'email' => $this->payment->email,
-                        'memberId' => $this->weblingMemberId
+                        'memberId' => $this->weblingMember['id']
                     ]
                 )
             );
@@ -148,46 +142,46 @@ class PaymentProcessor
      */
     private function updateAndGetMemberFromWebling(): void
     {
-        $weblingService = new WeblingServiceAPI();
-
         // search member in webling that matches the payee name and address
-        $match = $weblingService->matchMember($this->payment);
+        $match = $this->weblingService->matchMember($this->payment);
 
         switch ($match['status']) {
             case WeblingServiceAPI::MATCH_EXACT:
                 // found exactly one existing record in webling -> use it
-                $memberData = $match['matches'][0];
+                $this->weblingMember = $match['matches'][0];
                 Logger::debug(
                     new LogMessage(
-                        "Payment matched member with id {$memberData['id']}.",
+                        "Payment matched member with id {$this->weblingMember['id']}.",
                         [
                             'transactionId' => $this->payment->eppTransactionId,
                             'email' => $this->payment->email
                         ]
                     )
                 );
+                $this->maybeCompleteMissingMemberData();
                 break;
 
             case WeblingServiceAPI::MATCH_MULTIPLE:
                 // found multiple records in webling -> use the main record
-                $memberData = $weblingService->mainMember($match['matches'][0]['id']);
+                $this->weblingMember = $this->weblingService->mainMember($match['matches'][0]['id']);
                 Logger::debug(
                     new LogMessage(
-                        "Payment matched multiple members. Main member has id {$memberData['id']}.",
+                        "Payment matched multiple members. Main member has id {$this->weblingMember['id']}.",
                         [
                             'transactionId' => $this->payment->eppTransactionId,
                             'email' => $this->payment->email
                         ]
                     )
                 );
+                $this->maybeCompleteMissingMemberData();
                 break;
 
             case WeblingServiceAPI::MATCH_NONE:
                 // found no record in webling -> create a new one
-                $memberData = $weblingService->addMember($this->payment);
+                $this->weblingMember = $this->weblingService->addMember($this->payment);
                 Logger::debug(
                     new LogMessage(
-                        "Payment matched no one. Newly created member has id {$memberData['id']}.",
+                        "Payment matched no one. Newly created member has id {$this->weblingMember['id']}.",
                         [
                             'transactionId' => $this->payment->eppTransactionId,
                             'email' => $this->payment->email
@@ -198,18 +192,35 @@ class PaymentProcessor
 
             case WeblingServiceAPI::MATCH_AMBIGUOUS:
             default:
-                $this->weblingMemberId = null;
-                return;
+                // unsure, if a corresponding record exists in webling -> handle manually
+                $this->weblingMember = null;
+                Logger::info(
+                    new LogMessage(
+                        "Payment matched multiple members. Failed to disambiguate. Notifying accountant and exiting.",
+                        [
+                            'transactionId' => $this->payment->eppTransactionId,
+                            'email' => $this->payment->email
+                        ]
+                    )
+                );
+                break;
         }
+    }
 
+    /**
+     * @throws ConfigException
+     * @throws GuzzleException
+     */
+    private function maybeCompleteMissingMemberData(): void
+    {
         // maybe complete missing address
         // maybe add newsletter subscription
-        if (empty($memberData['address1'])
-            || empty($memberData['zip'])
-            || empty($memberData['city'])
+        if (empty($this->weblingMember['address1'])
+            || empty($this->weblingMember['zip'])
+            || empty($this->weblingMember['city'])
             || $this->payment->newsletter
         ) {
-            $memberData = $weblingService->updateMember($memberData['id'], $this->payment);
+            $memberData = $this->weblingService->updateMember($this->weblingMember['id'], $this->payment);
             Logger::debug(
                 new LogMessage("Updated member data in Webling.", [
                     'transactionId' => $this->payment->eppTransactionId,
@@ -218,8 +229,6 @@ class PaymentProcessor
                 ])
             );
         }
-
-        $this->weblingMemberId = $memberData['id'];
     }
 
     /**
@@ -247,14 +256,14 @@ class PaymentProcessor
         }
 
         // add payment to webling
-        $webling->addPayment($this->weblingMemberId, $this->payment);
+        $webling->addPayment($this->weblingMember['id'], $this->payment);
         Logger::debug(
             new LogMessage(
                 "Payment successfully added to Webling.",
                 [
                     'transactionId' => $this->payment->eppTransactionId,
                     'email' => $this->payment->email,
-                    'memberId' => $this->weblingMemberId
+                    'memberId' => $this->weblingMember['id']
                 ]
             )
         );
