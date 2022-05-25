@@ -21,6 +21,6 @@ class Controller
             return;
         }
 
-        (new PaymentProcessor())->init();
+        (new RaisenowPaymentHandler())->handleRequest();
     }
 }
