@@ -6,6 +6,7 @@ RUN apt-get update -y \
   && apt-get install -y \
     openssl \
     wget \
+    zip \
     libzip-dev --no-install-recommends
 
 # cleanup
