@@ -121,7 +121,7 @@ sync() {
         --exclude='config.php' \
         --exclude='/storage/*' \
         --exclude='/storage/**/*' \
-        . "${host}:\"${target}\""
+        . "${host}:${target}"
 
 #        --exclude='/storage/logs/app.log' \
 #        --exclude='/storage/app/tokens/*.enc' \
