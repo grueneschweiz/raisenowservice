@@ -86,7 +86,8 @@ class RaisenowPaymentHandler
                 $e->getPayment()
             );
 
-            http_response_code(400);
+            // we can't recover from this error, so return a 200 to avoid retries
+            http_response_code(200);
         } catch (GuzzleException $e) {
             Logger::warning(
                 new LogMessage(
