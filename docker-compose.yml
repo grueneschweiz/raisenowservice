@@ -12,6 +12,8 @@ services:
       - .docker/php.ini:/usr/local/etc/php/php.ini
     depends_on:
       - mailhog
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   mailhog:
     image: mailhog/mailhog

@@ -449,4 +449,21 @@ class ControllerTest extends TestCase
         self::post(self::getUrl(), self::getWebhookData());
         self::assertEquals(502, http_response_code());
     }
+
+    public function testInit__MissingPaymentPeriod(): void
+    {
+        $this->mockWeblingServiceTokenRequest();
+        $this->mockWeblingServiceMatchUpdateGetMemberRequest();
+        ClientFactory::queueMockHandler(
+            new MockHandler([
+                // get period id
+                self::createResponse(200, ['objects' => []]),
+
+                // fail on further requests
+                self::createResponse(500, []),
+            ])
+        );
+        self::post(self::getUrl(), self::getWebhookData());
+        self::assertEquals(503, http_response_code());
+    }
 }
