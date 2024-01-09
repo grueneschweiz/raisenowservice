@@ -12,6 +12,7 @@ use RaiseNowConnector\Exception\ConfigException;
 use RaiseNowConnector\Exception\PersistanceException;
 use RaiseNowConnector\Exception\WeblingAccountingConfigException;
 use RaiseNowConnector\Exception\WeblingAPIException;
+use RaiseNowConnector\Exception\WeblingMissingAccountingPeriodException;
 use RaiseNowConnector\Model\RaisenowPaymentData;
 use RaiseNowConnector\Model\WeblingAccountingConfig;
 use RaiseNowConnector\Util\ClientFactory;
@@ -83,6 +84,8 @@ class WeblingAPI
     /**
      * @throws ConfigException
      * @throws GuzzleException
+     * @throws WeblingAPIException
+     * @throws WeblingMissingAccountingPeriodException
      */
     private function getPeriodId(DateTimeInterface $date): int
     {
@@ -116,7 +119,7 @@ class WeblingAPI
         }
 
         if (count($data['objects']) !== 1) {
-            throw new WeblingAPIException("No accounting period found in Webling for {$date->format(DATE_ATOM)}");
+            throw new WeblingMissingAccountingPeriodException("No accounting period found in Webling for {$date->format(DATE_ATOM)}");
         }
 
         $periodId = $data['objects'][0];
@@ -129,6 +132,8 @@ class WeblingAPI
     /**
      * @throws ConfigException
      * @throws GuzzleException
+     * @throws WeblingAPIException
+     * @throws WeblingMissingAccountingPeriodException
      */
     public function addPayment(mixed $memberId, RaisenowPaymentData $payment): void
     {
@@ -175,6 +180,8 @@ class WeblingAPI
     /**
      * @throws ConfigException
      * @throws GuzzleException
+     * @throws WeblingAPIException
+     * @throws WeblingMissingAccountingPeriodException
      */
     private function obtainAccountingConfig(DateTimeInterface $date): WeblingAccountingConfig
     {

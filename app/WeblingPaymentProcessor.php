@@ -9,6 +9,8 @@ use JsonException;
 use RaiseNowConnector\Client\WeblingAPI;
 use RaiseNowConnector\Exception\ConfigException;
 use RaiseNowConnector\Exception\RaisenowPaymentDataException;
+use RaiseNowConnector\Exception\WeblingAPIException;
+use RaiseNowConnector\Exception\WeblingMissingAccountingPeriodException;
 use RaiseNowConnector\Model\RaisenowPaymentData;
 use RaiseNowConnector\Model\WeblingPaymentState;
 use RaiseNowConnector\Util\Logger;
@@ -35,6 +37,8 @@ class WeblingPaymentProcessor
      * @throws JsonException
      * @throws RaisenowPaymentDataException
      * @throws GuzzleException
+     * @throws WeblingAPIException
+     * @throws WeblingMissingAccountingPeriodException
      * @noinspection PhpDocRedundantThrowsInspection
      */
     public function process(): WeblingPaymentState
@@ -85,6 +89,8 @@ class WeblingPaymentProcessor
      *
      * @throws ConfigException
      * @throws GuzzleException
+     * @throws WeblingAPIException
+     * @throws WeblingMissingAccountingPeriodException
      */
     private function addPaymentToWebling(): bool
     {
