@@ -27,7 +27,7 @@ class WeblingAPI
     private Client $client;
 
     /**
-     * @var array [DATE_ATOM => $period_id]
+     * @var array ['Y-m-d' => $period_id]
      */
     private array $periodId;
 
@@ -89,7 +89,7 @@ class WeblingAPI
      */
     private function getPeriodId(DateTimeInterface $date): int
     {
-        $dateKey = $date->format(DATE_ATOM);
+        $dateKey = $date->format('Y-m-d');
 
         if (isset($this->periodId[$dateKey])) {
             return $this->periodId[$dateKey];
@@ -98,8 +98,8 @@ class WeblingAPI
         $filter = sprintf(
             '$parents.$id = %d AND `from` <= "%s" AND `to` >= "%s"',
             Config::get('periodGroupId'),
-            $date->format(DATE_ATOM),
-            $date->format(DATE_ATOM)
+            $date->format('Y-m-d'),
+            $date->format('Y-m-d')
         );
 
         $response = $this->client->get('/api/1/period', ['query' => ['filter' => $filter]]);
@@ -119,7 +119,7 @@ class WeblingAPI
         }
 
         if (count($data['objects']) !== 1) {
-            throw new WeblingMissingAccountingPeriodException("No accounting period found in Webling for {$date->format(DATE_ATOM)}");
+            throw new WeblingMissingAccountingPeriodException("No accounting period found in Webling for {$date->format('Y-m-d')}");
         }
 
         $periodId = $data['objects'][0];
